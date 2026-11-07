@@ -5,7 +5,7 @@ import type { BoosterId } from '../engine/game';
  * `sanitizeSave` accepts anything (missing, partial, corrupted or older data) and always
  * returns a valid SaveData, so a bad save can never crash the game.
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export const BOOSTER_IDS: BoosterId[] = ['ladle', 'shuffle', 'pot', 'moves'];
 
@@ -54,6 +54,8 @@ export interface SaveData {
   stats: Stats;
   settings: Settings;
   tutorialsSeen: string[];
+  /** LagosLife purchase ids already given (each purchase is given once). Kept when progress is reset. */
+  purchases: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -97,6 +99,7 @@ export function defaultSave(now = new Date()): SaveData {
     stats: defaultStats(),
     settings: defaultSettings(),
     tutorialsSeen: [],
+    purchases: [],
     createdAt: iso,
     updatedAt: iso,
   };
@@ -108,10 +111,14 @@ const num = (v: unknown, fallback: number, min = 0, max = Number.MAX_SAFE_INTEGE
 const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const dateKey = (v: unknown): string | null => (typeof v === 'string' && DATE_RE.test(v) ? v : null);
+const PURCHASE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+/** How many given purchase ids are kept (oldest dropped first). */
+export const MAX_SAVED_PURCHASES = 500;
 
 /** Upgrade older save formats in place. */
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {
   // version 0 (pre-release) had no version field and nothing to change yet.
+  // version 1 → 2 added `purchases`; sanitizeSave fills it in as an empty list.
   return raw;
 }
 
@@ -174,6 +181,10 @@ export function sanitizeSave(input: unknown, now = new Date()): SaveData {
     ? [...new Set(raw.tutorialsSeen.filter((t): t is string => typeof t === 'string'))]
     : [];
 
+  const purchases = Array.isArray(raw.purchases)
+    ? [...new Set(raw.purchases.filter((p): p is string => typeof p === 'string' && PURCHASE_ID_RE.test(p)))].slice(-MAX_SAVED_PURCHASES)
+    : [];
+
   return {
     version: SAVE_VERSION,
     levels,
@@ -185,6 +196,7 @@ export function sanitizeSave(input: unknown, now = new Date()): SaveData {
     stats,
     settings,
     tutorialsSeen,
+    purchases,
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : base.createdAt,
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : base.updatedAt,
   };

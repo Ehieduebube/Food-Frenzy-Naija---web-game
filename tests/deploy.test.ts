@@ -34,10 +34,24 @@ describe('LagosLife embedding and deployment config', () => {
     expect(html.indexOf(tag)).toBeLessThan(html.indexOf('<script type="module"'));
   });
 
-  it('keeps no Vatar secret keys in the browser code', () => {
-    for (const path of ['index.html', 'src/main.tsx', 'src/vatar/vatarPlatform.ts']) {
+  it('keeps no Vatar secret keys in the code, browser or server', () => {
+    for (const path of ['index.html', 'src/main.tsx', 'src/vatar/vatarPlatform.ts', 'api/claim.mjs', 'api/_lib/vatarClaim.mjs', '.env.example']) {
       expect(read(path)).not.toMatch(/vtr_(test|live|whsec)_[A-Za-z0-9]/);
     }
+  });
+
+  it('reads the secrets only on the server, never through Vite (which would put them in the browser bundle)', () => {
+    for (const path of ['src/main.tsx', 'src/vatar/vatarPlatform.ts']) {
+      expect(read(path)).not.toMatch(/process\.env|import\.meta\.env\.\w*VATAR|VATAR_(TEST|LIVE)_SECRET/);
+    }
+    expect(read('.env.example')).not.toMatch(/VITE_\w*VATAR/);
+  });
+});
+
+describe('purchase records in the save', () => {
+  it('keeps valid purchase ids from older and newer saves, and drops junk', () => {
+    expect(sanitizeSave({ coins: 10 }).purchases).toEqual([]); // a version 1 save
+    expect(sanitizeSave({ purchases: ['pur_1', 'pur_1', 'bad id!', 7, 'pur_2'] }).purchases).toEqual(['pur_1', 'pur_2']);
   });
 });
 

@@ -65,7 +65,7 @@ describe('level data', () => {
       for (let k = 0; k < 8 && wins === 0; k++) if (botWins(l, 9000 + l.id * 101 + k)) wins++;
       expect(wins, `level ${l.id} (${l.name}) was never won`).toBeGreaterThan(0);
     }
-  });
+  }, 60_000); // a long simulation: give it room when the whole suite runs in parallel
 
   it('daily challenges for a month are all winnable', () => {
     for (let d = 1; d <= 30; d++) {

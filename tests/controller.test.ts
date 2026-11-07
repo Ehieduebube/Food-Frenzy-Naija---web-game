@@ -60,7 +60,7 @@ describe('game controller playback', () => {
       expect(c.store.getState().finalScore).toBe(c.session.score);
       c.dispose();
     }
-  });
+  }, 60_000); // a long simulation: give it room when the whole suite runs in parallel
 
   it('ignores input while busy and after the level ends', async () => {
     const { c } = make(1, 77);

@@ -2970,6 +2970,25 @@
   width: 22px;
   height: 22px;
 }
+.ffn-shop-section {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.ffn-shop-section .ffn-card-list {
+  width: 100%;
+}
+.ffn-shop-heading {
+  margin: 0;
+  font-size: 1.3rem;
+  text-align: center;
+}
+.ffn-shop-note {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+}
 .ffn-card-done {
   width: 36px;
   height: 36px;

@@ -1,6 +1,6 @@
 /**
  * Optional hooks into the site or app that hosts the game: the signed-in player, a leaderboard,
- * and pause/resume. The game never calls a platform SDK itself. The host passes an adapter
+ * pause/resume and purchases. The game never calls a platform SDK itself. The host passes an adapter
  * (the same way it can pass a ProgressStorage), so the game also runs on its own with no platform.
  */
 export interface PlatformPlayer {
@@ -22,6 +22,33 @@ export interface LeaderboardView {
   me: { rank: number | null; label: string; score: number } | null;
 }
 
+/** A purchase the game's server has checked with the platform and marked delivered. Give it once per purchaseId. */
+export interface PurchaseGrant {
+  purchaseId: string;
+  productId: string;
+}
+
+export type BuyFailure =
+  | 'unavailable' // not connected to the platform
+  | 'payment_failed'
+  | 'not_for_sale'
+  | 'owned'
+  | 'signed_out'
+  | 'busy' // a pay sheet is already open
+  | 'rate_limited'
+  | 'off'
+  | 'not_verified' // paid, but the server would not confirm it, so nothing is given
+  | 'error';
+
+export type BuyResult =
+  /** Checked and delivered: the item has been handed to the game through onGrant. */
+  | { status: 'granted' }
+  /** Paid, but the check couldn't finish yet. It keeps trying (and again on the next visit); the item arrives through onGrant. */
+  | { status: 'pending' }
+  /** The player closed the pay sheet. */
+  | { status: 'cancelled' }
+  | { status: 'failed'; reason: BuyFailure };
+
 export interface GamePlatform {
   /**
    * Connect to the host. Resolves to the signed-in player, or null when the game is running
@@ -36,4 +63,12 @@ export interface GamePlatform {
   onPause(fn: () => void): () => void;
   /** The game is visible and interactive again. Returns an unsubscribe function. */
   onResume(fn: () => void): () => void;
+  /** Buy a product on the platform's own pay sheet. Never rejects. */
+  buy(productId: string): Promise<BuyResult>;
+  /**
+   * Purchases checked and delivered by the game's server, including ones restored from an earlier
+   * visit. Grants that arrive before anyone listens are kept for the first listener.
+   * The game must give each purchaseId only once. Returns an unsubscribe function.
+   */
+  onGrant(fn: (grant: PurchaseGrant) => void): () => void;
 }

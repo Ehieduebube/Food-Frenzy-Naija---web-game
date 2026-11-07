@@ -8,7 +8,8 @@ import { CoinIcon, GiftIcon, TrophyIcon } from './art/icons';
 import { audio } from './audio/audio';
 import { dailyChallengeFor } from './levels/daily';
 import { LEVEL_COUNT, getLevel } from './levels/levels';
-import { bootProfile, shutdownProfile, useProfile } from './progress/profileStore';
+import { coinPackFor } from './progress/coinPacks';
+import { bootProfile, flushProfile, shutdownProfile, useProfile } from './progress/profileStore';
 import { highestUnlocked, totalBestScore } from './progress/saveSchema';
 import { localProgressStorage, type ProgressStorage } from './progress/storage';
 import type { GamePlatform } from './platform';
@@ -30,7 +31,7 @@ export interface FoodFrenzyNaijaProps {
   onExit?: () => void;
   /** Where progress is saved. Defaults to this browser's localStorage. */
   storage?: ProgressStorage;
-  /** Host platform hooks (player, leaderboard, pause/resume). Without one the game runs on its own. */
+  /** Host platform hooks (player, leaderboard, pause/resume, purchases). Without one the game runs on its own. */
   platform?: GamePlatform;
 }
 
@@ -158,6 +159,23 @@ export function FoodFrenzyNaija({ onExit, storage, platform }: FoodFrenzyNaijaPr
       ui.setPlatform(null, null);
       ui.setHostPaused(false);
     };
+  }, [platform]);
+
+  // Coins bought on LagosLife. The platform hands over only purchases our server has checked and
+  // marked delivered; the save remembers each purchase id, so a purchase is never given twice.
+  useEffect(() => {
+    if (!platform) return;
+    return platform.onGrant(({ purchaseId, productId }) => {
+      const pack = coinPackFor(productId);
+      if (!pack) {
+        console.warn(`[Food Frenzy Naija] Purchase ${purchaseId} is for unknown product ${productId}.`);
+        return;
+      }
+      if (!useProfile.getState().grantPurchase(purchaseId, pack.coins)) return;
+      flushProfile();
+      audio.play('coin');
+      useUi.getState().toast({ title: `+${pack.coins.toLocaleString('en-US')} coins`, body: 'Thanks for your purchase!', icon: 'coin' });
+    });
   }, [platform]);
 
   // keep the leaderboard up to date: sent on connect, then whenever the total grows

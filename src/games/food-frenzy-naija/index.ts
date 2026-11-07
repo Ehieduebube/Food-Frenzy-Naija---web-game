@@ -6,12 +6,12 @@
  *
  * To sync progress with LagosLife accounts later, pass a `storage` that implements
  * ProgressStorage (read/write of a JSON string), e.g. backed by an API.
- * Pass a `platform` (GamePlatform) for a player name, leaderboard and pause/resume;
+ * Pass a `platform` (GamePlatform) for a player name, leaderboard, pause/resume and coin purchases;
  * src/vatar/vatarPlatform.ts is the LagosLife Games (Vatar SDK) adapter.
  */
 export { FoodFrenzyNaija, type FoodFrenzyNaijaProps } from './FoodFrenzyNaija';
 export type { ProgressStorage } from './progress/storage';
-export type { GamePlatform, LeaderboardView, PlatformPlayer } from './platform';
+export type { BuyResult, GamePlatform, LeaderboardView, PlatformPlayer, PurchaseGrant } from './platform';
 export { localProgressStorage, memoryStorage } from './progress/storage';
 
 export { FOOD_FRENZY_NAIJA_META } from './meta';

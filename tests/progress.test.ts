@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyStats } from '../src/games/food-frenzy-naija/engine/types';
 import { dailyChallengeFor } from '../src/games/food-frenzy-naija/levels/daily';
 import { LEVELS, getLevel, starsForScore } from '../src/games/food-frenzy-naija/levels/levels';
-import { bootProfile, shutdownProfile, useProfile, type GameResultInput } from '../src/games/food-frenzy-naija/progress/profileStore';
+import { bootProfile, flushProfile, shutdownProfile, useProfile, type GameResultInput } from '../src/games/food-frenzy-naija/progress/profileStore';
 import { DAILY_REWARDS, levelReward } from '../src/games/food-frenzy-naija/progress/rewards';
 import { SAVE_VERSION, highestUnlocked, sanitizeSave, totalStars } from '../src/games/food-frenzy-naija/progress/saveSchema';
 import { LEGACY_SAVE_KEYS, SAVE_KEY, localProgressStorage, memoryStorage, type ProgressStorage } from '../src/games/food-frenzy-naija/progress/storage';
@@ -213,5 +213,29 @@ describe('save key after the rename', () => {
     data.set(SAVE_KEY, '{"coins":5}');
     data.set(LEGACY_SAVE_KEYS[0], '{"coins":999}');
     expect(localProgressStorage().read()).toBe('{"coins":5}');
+  });
+});
+
+describe('bought coins', () => {
+  it('adds the coins once per purchase id, written to storage right away, and not as earned coins', () => {
+    const storage = fresh();
+    const start = useProfile.getState().save.coins;
+    expect(useProfile.getState().grantPurchase('pur_1', 500)).toBe(true);
+    expect(useProfile.getState().grantPurchase('pur_1', 500)).toBe(false);
+    expect(useProfile.getState().grantPurchase('pur_2', 0)).toBe(false);
+    const save = useProfile.getState().save;
+    expect(save.coins).toBe(start + 500);
+    expect(save.purchases).toEqual(['pur_1']);
+    expect(save.stats.coinsEarned).toBe(0);
+    flushProfile();
+    expect(JSON.parse(storage.read()!).purchases).toEqual(['pur_1']);
+  });
+
+  it('remembers given purchases through a progress reset, so none is ever given twice', () => {
+    fresh();
+    useProfile.getState().grantPurchase('pur_1', 500);
+    useProfile.getState().resetProgress();
+    expect(useProfile.getState().save.purchases).toEqual(['pur_1']);
+    expect(useProfile.getState().grantPurchase('pur_1', 500)).toBe(false);
   });
 });

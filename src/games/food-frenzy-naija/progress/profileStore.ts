@@ -13,7 +13,7 @@ import {
   type LevelResultReward,
   type RewardSummary,
 } from './rewards';
-import { defaultSave, sanitizeSave, type SaveData, type Settings } from './saveSchema';
+import { MAX_SAVED_PURCHASES, defaultSave, sanitizeSave, type SaveData, type Settings } from './saveSchema';
 import { parseStoredSave, type ProgressStorage } from './storage';
 
 export interface GameResultInput {
@@ -37,6 +37,8 @@ interface ProfileState {
   spendCoins(amount: number): boolean;
   claimDaily(today: string): RewardSummary | null;
   claimAchievement(id: string): number;
+  /** Add bought coins for a purchase the server has confirmed. False if this purchase was already given. */
+  grantPurchase(purchaseId: string, coins: number): boolean;
   markTutorialsSeen(ids: string[]): void;
   setSettings(patch: Partial<Settings>): void;
   resetProgress(): void;
@@ -169,6 +171,16 @@ export const useProfile = create<ProfileState>((set, get) => {
       return def.coins;
     },
 
+    grantPurchase(purchaseId, coins) {
+      if (!purchaseId || !(coins > 0) || get().save.purchases.includes(purchaseId)) return false;
+      mutate((d) => {
+        // bought coins are not "earned": they don't count towards awards
+        d.coins = Math.min(9_999_999, d.coins + Math.floor(coins));
+        d.purchases = [...d.purchases, purchaseId].slice(-MAX_SAVED_PURCHASES);
+      });
+      return true;
+    },
+
     markTutorialsSeen(ids) {
       const seen = get().save.tutorialsSeen;
       if (ids.every((id) => seen.includes(id))) return;
@@ -184,9 +196,10 @@ export const useProfile = create<ProfileState>((set, get) => {
     },
 
     resetProgress() {
-      const settings = get().save.settings;
+      const { settings, purchases } = get().save;
       const fresh = defaultSave();
       fresh.settings = settings;
+      fresh.purchases = purchases; // a purchase given once is never given again
       set({ save: fresh, unlockedQueue: [] });
     },
 
@@ -204,6 +217,7 @@ export const useProfile = create<ProfileState>((set, get) => {
 
 let activeStorage: ProgressStorage | null = null;
 let stopPersisting: (() => void) | null = null;
+let flushActive: (() => void) | null = null;
 
 /**
  * Load progress from storage and keep it saved. Safe to call more than once:
@@ -245,8 +259,10 @@ export function bootProfile(storage: ProgressStorage): void {
   // write once so a sanitized/migrated save replaces whatever was there
   flush();
 
+  flushActive = flush;
   stopPersisting = () => {
     if (timer) flush();
+    flushActive = null;
     unsub();
     if (typeof window !== 'undefined') {
       window.removeEventListener('pagehide', onHide);
@@ -254,6 +270,11 @@ export function bootProfile(storage: ProgressStorage): void {
     }
     activeStorage = null;
   };
+}
+
+/** Write the save now instead of after the short delay (used right after a purchase is given). */
+export function flushProfile(): void {
+  flushActive?.();
 }
 
 /** Flush pending writes and stop persisting (when the game is unmounted by the host). */

@@ -16,13 +16,16 @@ export function SettingsModal() {
   const settings = useProfile((s) => s.save.settings);
   const setSettings = useProfile((s) => s.setSettings);
   const reset = useProfile((s) => s.resetProgress);
+  const boughtCoins = useProfile((s) => s.save.purchases.length > 0);
   const { close, toast } = useUi();
   const [confirmReset, setConfirmReset] = useState(false);
   if (confirmReset) {
     return (
       <ConfirmDialog
         title="Reset progress?"
-        message="This deletes your levels, stars, coins, boosters and awards on this device. Your settings are kept."
+        message={`This deletes your levels, stars, coins, boosters and awards on this device${
+          boughtCoins ? ', including coins you bought' : ''
+        }. Your settings are kept.`}
         confirmLabel="Reset"
         danger
         onCancel={() => setConfirmReset(false)}
