@@ -1,0 +1,681 @@
+import type { GoalSpec, SpecialFamily } from '../engine/goals';
+import type { Food, ObstacleLayer } from '../engine/types';
+import type { LevelConfig, RegionConfig } from './types';
+
+/*
+ * 40 levels across four regions. Each level is plain data: add a new entry to LEVELS to add a level.
+ *
+ * Mechanics are introduced gradually:
+ *   1-5   swapping, matching, cascades, collection goals
+ *   6-10  Dodo Rocket, Jollof Blast, Suya Fire, special combinations, score goals
+ *   11-15 food baskets, leaf wraps, palm-oil spills
+ *   16-20 layered pepper crates, restricted cells, mixed obstacles
+ *   21-40 everything combined on more complex boards
+ *
+ * Move counts and star scores were tuned with `npm run simulate`, which plays every level
+ * many times with a greedy bot (see scripts/simulate-levels.ts).
+ *
+ * Layout legend: . food  # restricted  b basket  c crate(2)  C crate(3)  w wrap  W wrap(2)
+ *                o oil  O oil(2)  x wrap on oil
+ */
+
+const J: Food = 0; // jollof
+const D: Food = 1; // dodo
+const P: Food = 2; // puff-puff
+const A: Food = 3; // akara
+const S: Food = 4; // suya
+const M: Food = 5; // moi moi
+const C: Food = 6; // chin-chin
+
+const collect = (food: Food, count: number): GoalSpec => ({ kind: 'collect', food, count });
+const clear = (layer: ObstacleLayer): GoalSpec => ({ kind: 'clear', layer });
+const score = (n: number): GoalSpec => ({ kind: 'score', score: n });
+const activate = (special: SpecialFamily, count: number): GoalSpec => ({ kind: 'activate', special, count });
+
+export const REGIONS: RegionConfig[] = [
+  { id: 'mainland', name: 'Lagos Mainland', tagline: 'Street food from Yaba to Ikeja', firstLevel: 1, lastLevel: 10 },
+  { id: 'balogun', name: 'Balogun Market', tagline: 'Baskets, crates and busy stalls', firstLevel: 11, lastLevel: 20 },
+  { id: 'lekki', name: 'Lekki Food Festival', tagline: 'Beachside grills and big flavours', firstLevel: 21, lastLevel: 30 },
+  { id: 'carnival', name: 'Naija Food Carnival', tagline: 'The grandest feast in the land', firstLevel: 31, lastLevel: 40 },
+];
+
+export const LEVELS: LevelConfig[] = [
+  // ───────────── Lagos Mainland ─────────────
+  {
+    id: 1, name: 'Yaba Morning', region: 'mainland', difficulty: 'easy',
+    moves: 18, foods: [J, D, P, A, S],
+    goals: [collect(J, 25)],
+    stars: [7000, 11000, 13500],
+    reward: { coins: 30 },
+    tutorials: ['swap'],
+  },
+  {
+    id: 2, name: 'Ebute Metta Buka', region: 'mainland', difficulty: 'easy',
+    moves: 20, foods: [J, D, P, S, M],
+    goals: [collect(D, 30), collect(P, 30)],
+    stars: [8000, 13000, 15500],
+    reward: { coins: 30 },
+    tutorials: ['goals'],
+  },
+  {
+    id: 3, name: 'Surulere Supper', region: 'mainland', difficulty: 'easy',
+    moves: 20, foods: [J, D, A, S, M, C],
+    goals: [collect(A, 18), collect(S, 18)],
+    stars: [4500, 7500, 9000],
+    reward: { coins: 35, boosters: { ladle: 2 } },
+    tutorials: ['cascade'],
+  },
+  {
+    id: 4, name: 'Ojuelegba Junction', region: 'mainland', difficulty: 'easy',
+    moves: 22, foods: [J, D, P, M, C, S],
+    goals: [collect(J, 18), collect(M, 18), collect(C, 18)],
+    stars: [5000, 8500, 10000],
+    reward: { coins: 35 },
+    tutorials: ['ladle'],
+  },
+  {
+    id: 5, name: 'Ikeja Lunch Rush', region: 'mainland', difficulty: 'medium',
+    moves: 24, foods: [J, D, P, A, S, M],
+    goals: [collect(P, 20), collect(A, 20), collect(S, 20)],
+    stars: [5000, 8500, 10500],
+    reward: { coins: 40, boosters: { shuffle: 2 } },
+  },
+  {
+    id: 6, name: 'Dodo Rocket', region: 'mainland', difficulty: 'easy',
+    moves: 22, foods: [J, D, P, A, C, M],
+    layout: [
+      '........',
+      '........',
+      '........',
+      '........',
+      '........',
+      '..h..v..',
+      '........',
+      '........',
+    ],
+    goals: [activate('rocket', 3), collect(D, 20)],
+    stars: [5000, 8000, 10000],
+    reward: { coins: 40 },
+    tutorials: ['rocket', 'shuffle'],
+  },
+  {
+    id: 7, name: 'Jollof Blast', region: 'mainland', difficulty: 'medium',
+    moves: 22, foods: [J, D, S, M, C],
+    layout: [
+      '........',
+      '........',
+      '........',
+      '........',
+      '........',
+      '...j....',
+      '........',
+      '........',
+    ],
+    goals: [activate('blast', 2), collect(J, 30)],
+    stars: [8500, 14000, 17000],
+    reward: { coins: 40 },
+    tutorials: ['blast'],
+  },
+  {
+    id: 8, name: 'Suya Fire', region: 'mainland', difficulty: 'medium',
+    moves: 22, foods: [J, P, A, S, M],
+    layout: [
+      '........',
+      '........',
+      '........',
+      '........',
+      '........',
+      '........',
+      '....f...',
+      '........',
+    ],
+    goals: [activate('fire', 1), collect(S, 35)],
+    stars: [8500, 14500, 17000],
+    reward: { coins: 45, boosters: { moves: 1 } },
+    tutorials: ['fire'],
+  },
+  {
+    id: 9, name: 'Mainland Combos', region: 'mainland', difficulty: 'medium',
+    moves: 22, foods: [J, D, P, A, S, M],
+    layout: [
+      '........',
+      '........',
+      '........',
+      '........',
+      '........',
+      '..hj.vh.',
+      '........',
+      '........',
+    ],
+    goals: [score(7000)],
+    stars: [7000, 10000, 11500],
+    reward: { coins: 45 },
+    tutorials: ['combo', 'moves'],
+  },
+  {
+    id: 10, name: 'Third Mainland Feast', region: 'mainland', difficulty: 'hard',
+    moves: 26, foods: [J, D, P, A, S, M],
+    goals: [collect(J, 25), collect(D, 25), collect(M, 25)],
+    stars: [6500, 9500, 12000],
+    reward: { coins: 60 },
+  },
+
+  // ───────────── Balogun Market ─────────────
+  {
+    id: 11, name: 'Basket Weavers', region: 'balogun', difficulty: 'easy',
+    moves: 18, foods: [J, D, P, A, S, M],
+    layout: [
+      '........',
+      '........',
+      '........',
+      'bbbbbbbb',
+      '........',
+      '........',
+      '........',
+      '........',
+    ],
+    goals: [clear('basket')],
+    stars: [4000, 6000, 7500],
+    reward: { coins: 50, boosters: { pot: 1 } },
+    tutorials: ['basket'],
+  },
+  {
+    id: 12, name: 'Tomato Stalls', region: 'balogun', difficulty: 'medium',
+    moves: 22, foods: [J, D, P, A, S, M],
+    layout: [
+      '........',
+      '.b....b.',
+      '..b..b..',
+      '........',
+      '........',
+      '..b..b..',
+      '.b....b.',
+      '........',
+    ],
+    goals: [clear('basket'), collect(J, 20)],
+    stars: [5000, 8500, 10500],
+    reward: { coins: 50 },
+    tutorials: ['pot'],
+  },
+  {
+    id: 13, name: 'Leaf Sellers', region: 'balogun', difficulty: 'easy',
+    moves: 16, foods: [J, D, P, A, M, C],
+    layout: [
+      '........',
+      '........',
+      '..wwww..',
+      '..w..w..',
+      '..w..w..',
+      '..wwww..',
+      '........',
+      '........',
+    ],
+    goals: [clear('wrap')],
+    stars: [3000, 5000, 6000],
+    reward: { coins: 50 },
+    tutorials: ['wrap'],
+  },
+  {
+    id: 14, name: 'Wrapped Treats', region: 'balogun', difficulty: 'medium',
+    moves: 24, foods: [J, D, P, A, S, M],
+    layout: [
+      'w......w',
+      '.w....w.',
+      '..w..w..',
+      '........',
+      '........',
+      '..w..w..',
+      '.w....w.',
+      'w......w',
+    ],
+    goals: [clear('wrap'), collect(M, 20)],
+    stars: [5500, 8500, 9500],
+    reward: { coins: 55 },
+  },
+  {
+    id: 15, name: 'Palm Oil Lane', region: 'balogun', difficulty: 'medium',
+    moves: 22, foods: [J, D, P, A, S, C],
+    layout: [
+      '........',
+      '........',
+      '..oooo..',
+      '..oooo..',
+      '..oooo..',
+      '..oooo..',
+      '........',
+      '........',
+    ],
+    goals: [clear('oil')],
+    stars: [5000, 7000, 9500],
+    reward: { coins: 55, boosters: { ladle: 1 } },
+    tutorials: ['oil'],
+  },
+  {
+    id: 16, name: 'Pepper Crates', region: 'balogun', difficulty: 'medium',
+    moves: 24, foods: [J, D, P, A, S, M],
+    layout: [
+      '........',
+      '........',
+      '........',
+      '.cc..cc.',
+      '.cc..cc.',
+      '........',
+      '........',
+      '........',
+    ],
+    goals: [clear('crate')],
+    stars: [5500, 8000, 9500],
+    reward: { coins: 55 },
+    tutorials: ['crate'],
+  },
+  {
+    id: 17, name: 'Narrow Aisles', region: 'balogun', difficulty: 'medium',
+    moves: 24, foods: [J, P, A, S, C],
+    layout: [
+      '........',
+      '#......#',
+      '##....##',
+      '###..###',
+      '###..###',
+      '##....##',
+      '#......#',
+      '........',
+    ],
+    goals: [collect(S, 20), collect(C, 20)],
+    stars: [4000, 6500, 8500],
+    reward: { coins: 60 },
+    tutorials: ['restricted'],
+  },
+  {
+    id: 18, name: 'Crate Stacks', region: 'balogun', difficulty: 'hard',
+    moves: 22, foods: [J, D, P, A, S, M],
+    layout: [
+      '........',
+      '.C....C.',
+      '.c....c.',
+      '........',
+      'bbb..bbb',
+      '........',
+      '........',
+      '........',
+    ],
+    goals: [clear('crate'), clear('basket')],
+    stars: [5500, 8000, 10500],
+    reward: { coins: 60 },
+  },
+  {
+    id: 19, name: 'Oily Wrappers', region: 'balogun', difficulty: 'hard',
+    moves: 30, foods: [J, D, P, S, M, C],
+    layout: [
+      '........',
+      '..OOOO..',
+      '.OxOOxO.',
+      '.OO..OO.',
+      '.OO..OO.',
+      '.OxOOxO.',
+      '..OOOO..',
+      '........',
+    ],
+    goals: [clear('oil'), clear('wrap')],
+    stars: [9000, 14000, 15000],
+    reward: { coins: 65 },
+  },
+  {
+    id: 20, name: 'Balogun Bargain', region: 'balogun', difficulty: 'hard',
+    moves: 28, foods: [J, D, P, A, M],
+    layout: [
+      'cc....cc',
+      'c......c',
+      '..oooo..',
+      '..oOOo..',
+      '..oOOo..',
+      '..oooo..',
+      'c......c',
+      'cc....cc',
+    ],
+    goals: [clear('crate'), clear('oil')],
+    stars: [15000, 24000, 27500],
+    reward: { coins: 90, boosters: { pot: 1, moves: 1 } },
+  },
+
+  // ───────────── Lekki Food Festival ─────────────
+  {
+    id: 21, name: 'Beach Barbecue', region: 'lekki', difficulty: 'medium',
+    moves: 24, foods: [J, D, P, S, M, C],
+    layout: [
+      '........',
+      'b......b',
+      '.b....b.',
+      '..b..b..',
+      '...bb...',
+      '........',
+      '........',
+      '........',
+    ],
+    goals: [clear('basket'), collect(S, 25)],
+    stars: [5500, 8500, 10500],
+    reward: { coins: 60 },
+  },
+  {
+    id: 22, name: 'Lekki Link Bridge', region: 'lekki', difficulty: 'medium',
+    moves: 28, foods: [J, D, P, A, S],
+    layout: [
+      '........',
+      '........',
+      '.#.##.#.',
+      '........',
+      '........',
+      '.#.##.#.',
+      '........',
+      '........',
+    ],
+    goals: [activate('rocket', 3), collect(D, 25)],
+    stars: [4500, 8500, 9500],
+    reward: { coins: 60 },
+  },
+  {
+    id: 23, name: 'Festival Lights', region: 'lekki', difficulty: 'medium',
+    moves: 22, foods: [J, D, A, S, M],
+    layout: [
+      'o......o',
+      '.o....o.',
+      '..o..o..',
+      '...OO...',
+      '...OO...',
+      '..o..o..',
+      '.o....o.',
+      'o......o',
+    ],
+    goals: [clear('oil')],
+    stars: [9500, 16000, 19000],
+    reward: { coins: 60 },
+  },
+  {
+    id: 24, name: 'Food Truck Alley', region: 'lekki', difficulty: 'hard',
+    moves: 26, foods: [J, P, A, S, M, C],
+    layout: [
+      '........',
+      '........',
+      'c.c..c.c',
+      'c.c..c.c',
+      '........',
+      '........',
+      '........',
+      '........',
+    ],
+    goals: [clear('crate'), collect(A, 20)],
+    stars: [6000, 9000, 11500],
+    reward: { coins: 65 },
+  },
+  {
+    id: 25, name: "Chef's Challenge", region: 'lekki', difficulty: 'hard',
+    moves: 24, foods: [J, D, P, A, S, M],
+    layout: [
+      '........',
+      '........',
+      '.b.bb.b.',
+      '........',
+      '........',
+      '.b.bb.b.',
+      '........',
+      '........',
+    ],
+    goals: [score(8000), clear('basket')],
+    stars: [7500, 11000, 12000],
+    reward: { coins: 70, boosters: { shuffle: 1 } },
+  },
+  {
+    id: 26, name: 'Moi Moi Wrappers', region: 'lekki', difficulty: 'hard',
+    moves: 24, foods: [J, D, P, A, M, C],
+    layout: [
+      '........',
+      '.W.WW.W.',
+      '........',
+      '..W..W..',
+      '..W..W..',
+      '........',
+      '.W.WW.W.',
+      '........',
+    ],
+    goals: [clear('wrap'), collect(M, 25)],
+    stars: [5500, 9500, 11500],
+    reward: { coins: 70 },
+  },
+  {
+    id: 27, name: 'Pepper Soup Pots', region: 'lekki', difficulty: 'hard',
+    moves: 24, foods: [J, D, A, S, C],
+    layout: [
+      '........',
+      '........',
+      '..CCCC..',
+      '..C..C..',
+      '..C..C..',
+      '..CCCC..',
+      '........',
+      '........',
+    ],
+    goals: [clear('crate')],
+    stars: [8000, 12000, 14500],
+    reward: { coins: 75 },
+  },
+  {
+    id: 28, name: 'Sunset Grill', region: 'lekki', difficulty: 'hard',
+    moves: 26, foods: [J, D, P, A, S, M, C],
+    goals: [collect(S, 15), collect(A, 15), collect(D, 15)],
+    stars: [4000, 6500, 7500],
+    reward: { coins: 75 },
+  },
+  {
+    id: 29, name: 'Festival Crowd', region: 'lekki', difficulty: 'medium',
+    moves: 26, foods: [J, D, P, A, S, M],
+    layout: [
+      '###..###',
+      '##....##',
+      '#..oo..#',
+      '..oOOo..',
+      '..oOOo..',
+      '#..oo..#',
+      '##....##',
+      '###..###',
+    ],
+    goals: [clear('oil'), collect(P, 18)],
+    stars: [4500, 6500, 8000],
+    reward: { coins: 80 },
+  },
+  {
+    id: 30, name: 'Lekki Grand Feast', region: 'lekki', difficulty: 'super hard',
+    moves: 24, foods: [J, D, P, A, S, M],
+    layout: [
+      'b......b',
+      '.x....x.',
+      '..cooc..',
+      '..oOOo..',
+      '..oOOo..',
+      '..cooc..',
+      '.x....x.',
+      'b......b',
+    ],
+    goals: [clear('oil'), clear('crate'), clear('wrap')],
+    stars: [6000, 9500, 11500],
+    reward: { coins: 120, boosters: { pot: 2 } },
+  },
+
+  // ───────────── Naija Food Carnival ─────────────
+  {
+    id: 31, name: 'Carnival Drums', region: 'carnival', difficulty: 'medium',
+    moves: 20, foods: [J, D, P, A, S, M],
+    layout: [
+      '........',
+      '.bb..bb.',
+      '.bb..bb.',
+      '........',
+      '........',
+      '.ww..ww.',
+      '.ww..ww.',
+      '........',
+    ],
+    goals: [clear('basket'), clear('wrap')],
+    stars: [4000, 6500, 8000],
+    reward: { coins: 80 },
+  },
+  {
+    id: 32, name: 'Masquerade Parade', region: 'carnival', difficulty: 'hard',
+    moves: 24, foods: [J, D, P, A, S],
+    layout: [
+      '........',
+      '........',
+      '..#..#..',
+      '........',
+      '....j...',
+      '..#..#..',
+      '........',
+      '........',
+    ],
+    goals: [activate('blast', 2), collect(J, 30)],
+    stars: [6000, 11000, 13000],
+    reward: { coins: 80 },
+  },
+  {
+    id: 33, name: 'Owambe Tables', region: 'carnival', difficulty: 'hard',
+    moves: 24, foods: [J, D, A, S, M],
+    layout: [
+      '........',
+      'cccccccc',
+      '........',
+      '........',
+      '........',
+      '........',
+      'oooooooo',
+      'oooooooo',
+    ],
+    goals: [clear('crate'), clear('oil')],
+    stars: [10000, 18000, 23000],
+    reward: { coins: 85 },
+  },
+  {
+    id: 34, name: 'Talking Drum Beat', region: 'carnival', difficulty: 'hard',
+    moves: 26, foods: [J, D, P, A, S, C],
+    goals: [score(7500), collect(C, 25)],
+    stars: [7000, 10500, 12000],
+    reward: { coins: 85 },
+  },
+  {
+    id: 35, name: 'Asoebi Lane', region: 'carnival', difficulty: 'hard',
+    moves: 27, foods: [J, D, P, S, M],
+    layout: [
+      'x......x',
+      'xx....xx',
+      '..W..W..',
+      '........',
+      '........',
+      '..W..W..',
+      'xx....xx',
+      'x......x',
+    ],
+    goals: [clear('wrap'), clear('oil')],
+    stars: [11500, 17500, 23000],
+    reward: { coins: 90, boosters: { moves: 2 } },
+  },
+  {
+    id: 36, name: 'Pepper Market Maze', region: 'carnival', difficulty: 'hard',
+    moves: 25, foods: [J, D, P, A, S],
+    layout: [
+      '...##...',
+      '.C....C.',
+      '.c.bb.c.',
+      '#......#',
+      '#......#',
+      '.c.bb.c.',
+      '.C....C.',
+      '...##...',
+    ],
+    goals: [clear('crate'), clear('basket')],
+    stars: [8000, 13000, 16000],
+    reward: { coins: 95 },
+  },
+  {
+    id: 37, name: 'Rocket Relay', region: 'carnival', difficulty: 'hard',
+    moves: 30, foods: [J, D, P, A, S, M],
+    layout: [
+      '........',
+      '.oooooo.',
+      '.o....o.',
+      '.o.cc.o.',
+      '.o.cc.o.',
+      '.o....o.',
+      '.oooooo.',
+      '........',
+    ],
+    goals: [activate('rocket', 4), clear('oil'), clear('crate')],
+    stars: [8000, 13000, 14000],
+    reward: { coins: 95 },
+  },
+  {
+    id: 38, name: 'Fireworks Finale', region: 'carnival', difficulty: 'super hard',
+    moves: 28, foods: [J, D, P, A, S, M],
+    layout: [
+      '##....##',
+      '#.oOOo.#',
+      '.oxOOxo.',
+      '.OOCCOO.',
+      '.OOCCOO.',
+      '.oxOOxo.',
+      '#.oOOo.#',
+      '##....##',
+    ],
+    goals: [clear('oil'), clear('crate'), clear('wrap')],
+    stars: [7000, 10500, 12500],
+    reward: { coins: 100 },
+  },
+  {
+    id: 39, name: 'Grand Buffet', region: 'carnival', difficulty: 'super hard',
+    moves: 27, foods: [J, D, P, A, S],
+    layout: [
+      'bbb..bbb',
+      '........',
+      '..ww.ww.',
+      '........',
+      '........',
+      '.ww.ww..',
+      '........',
+      'ccc..ccc',
+    ],
+    goals: [clear('basket'), clear('wrap'), clear('crate')],
+    stars: [9000, 20500, 25500],
+    reward: { coins: 110 },
+  },
+  {
+    id: 40, name: 'Naija Food Champion', region: 'carnival', difficulty: 'super hard',
+    moves: 34, foods: [J, D, P, A, S],
+    layout: [
+      'c..##..c',
+      '.xooo.x.',
+      '.oOOOOo.',
+      '#oObbOo#',
+      '#oObbOo#',
+      '.oOOOOo.',
+      '.x.oo.x.',
+      'c..##..c',
+    ],
+    goals: [clear('oil'), clear('basket'), clear('crate'), clear('wrap')],
+    stars: [11000, 19500, 23500],
+    reward: { coins: 200, boosters: { pot: 3, moves: 2 } },
+  },
+];
+
+export const LEVEL_COUNT = LEVELS.length;
+
+export function getLevel(id: number): LevelConfig | undefined {
+  return LEVELS.find((l) => l.id === id);
+}
+
+export function regionOf(levelId: number): RegionConfig {
+  return REGIONS.find((r) => levelId >= r.firstLevel && levelId <= r.lastLevel) ?? REGIONS[REGIONS.length - 1];
+}
+
+/** Stars earned for a completed level (always at least one). */
+export function starsForScore(level: Pick<LevelConfig, 'stars'>, finalScore: number): 1 | 2 | 3 {
+  if (finalScore >= level.stars[2]) return 3;
+  if (finalScore >= level.stars[1]) return 2;
+  return 1;
+}
